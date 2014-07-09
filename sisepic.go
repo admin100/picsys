@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -87,7 +88,6 @@ func validate(rw http.ResponseWriter, req *http.Request) bool {
 	username := req.FormValue("username")
 	log.Println("username = " + username)
 	password := req.FormValue("password")
-	/*log.Println("password = " + password)*/
 	for _, v := range users.Users {
 		if username == v.Username && password == v.Password {
 			wwwroot = "./" + v.Wwwroot + "/"
@@ -110,12 +110,6 @@ func upload(rw http.ResponseWriter, req *http.Request) {
 			panic(err)
 			return
 		}
-		buff, err := ioutil.ReadAll(file)
-		if err != nil {
-			fmt.Fprintln(rw, `{"errcode":40003,"errmsg":"File read failed."}`)
-			panic(err)
-			return
-		}
 		dirName := wwwroot + "/" + filepath + "/"
 		dirFlag, _ := dirExists(dirName)
 		if !dirFlag {
@@ -133,8 +127,24 @@ func upload(rw http.ResponseWriter, req *http.Request) {
 			panic(err)
 			return
 		}
-		defer dstFile.Close()
-		dstFile.Write(buff)
+		buff := make([]byte, 1024)
+		for {
+			n,err := file.Read(buff)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				fmt.Fprintln(rw, `{"errcode":40003,"errmsg":"File read failed."}`)
+				panic(err)
+				return
+			}
+			_,err = dstFile.Write(buff[:n])
+			if err != nil{
+				fmt.Fprintln(rw, `{"errcode":40001,"errmsg":"Failed to create file."}`)
+				panic(err)
+				return
+			}
+		}
 		fmt.Fprintln(rw, `{"errcode":0,"errmsg":"ok"}`)
 	}
 }
